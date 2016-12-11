@@ -20,9 +20,12 @@ import org.slf4j.LoggerFactory;
 
 import com.iota.iri.Milestone;
 import com.iota.iri.Neighbor;
+import com.iota.iri.conf.Configuration;
+import com.iota.iri.conf.Configuration.DefaultConfSettings;
 import com.iota.iri.hash.Curl;
 import com.iota.iri.model.Transaction;
 import com.iota.iri.service.storage.Storage;
+import com.iota.iri.service.storage.StorageScratchpad;
 import com.iota.iri.service.storage.StorageTransactions;
 
 /** 
@@ -51,12 +54,13 @@ public class Node {
 
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
 
-    public void init(final String[] args) throws Exception {
+    public void init() throws Exception {
 
-        socket = new DatagramSocket(Integer.parseInt(args[0]));
-        
-        Arrays.stream(args)
-        	.skip(1)
+        socket = new DatagramSocket(Configuration.integer(DefaultConfSettings.TANGLE_RECEIVER_PORT));
+       
+        Arrays.stream(Configuration.string(DefaultConfSettings.NEIGHBORS).split(" "))
+        	.distinct()
+        	.filter(s -> !s.isEmpty())
         	.map(API::uri)
         	.map(Optional::get)
         	.peek(u -> {
@@ -66,6 +70,11 @@ public class Node {
         	})
         	.filter(u -> "udp".equals(u.getScheme()))
         	.map(u -> new Neighbor(new InetSocketAddress(u.getHost(), u.getPort())))
+        	.peek(u -> {
+        		if (Configuration.booling(DefaultConfSettings.DEBUG)) {
+        			log.debug("-> Adding neighbor : {} ", u.getAddress());
+        		}
+        	})
         	.forEach(neighbors::add);
 
         executor.submit(spawnReceiverThread());
@@ -82,7 +91,7 @@ public class Node {
             final int[] receivedTransactionTrits = new int[Transaction.TRINARY_SIZE];
             final byte[] requestedTransaction = new byte[Transaction.HASH_SIZE];
 
-            log.info("Spawing Receiver Thread");
+            log.info("Spawning Receiver Thread");
             
             while (!shuttingDown.get()) {
 
@@ -112,12 +121,12 @@ public class Node {
                                     if (transactionPointer > Storage.CELLS_OFFSET - Storage.SUPER_GROUPS_OFFSET) {
                                     	synchronized (sendingPacket) {
                                     		System.arraycopy(StorageTransactions.instance().loadTransaction(transactionPointer).bytes, 0, sendingPacket.getData(), 0, Transaction.SIZE);
-                                    		Storage.instance().transactionToRequest(sendingPacket.getData(), Transaction.SIZE);
+                                    		StorageScratchpad.instance().transactionToRequest(sendingPacket.getData(), Transaction.SIZE);
                                     		neighbor.send(sendingPacket);
                                     	}
                                     }
                                 } catch (final RuntimeException e) {
-                                	log.error("Invalid Transaction Error:", e);
+                                	log.error("Received an Invalid Transaction. Dropping it...");
                                     neighbor.incInvalidTransactions();
                                 }
                                 break;
@@ -130,7 +139,7 @@ public class Node {
                 	log.error("Receiver Thread Exception:", e);
                 }
             }
-        	log.info("Shutting down spawing Receiver Thread");
+        	log.info("Shutting down spawning Receiver Thread");
         };
 	}
 
@@ -149,7 +158,7 @@ public class Node {
                             try {
                             	synchronized (sendingPacket) {
                             		System.arraycopy(transaction.bytes, 0, sendingPacket.getData(), 0, Transaction.SIZE);
-                            		Storage.instance().transactionToRequest(sendingPacket.getData(), Transaction.SIZE);
+                            		StorageScratchpad.instance().transactionToRequest(sendingPacket.getData(), Transaction.SIZE);
                             		neighbor.send(sendingPacket);
 								}
                             } catch (final Exception e) {
@@ -178,7 +187,7 @@ public class Node {
                     System.arraycopy(transaction.bytes, 0, tipRequestingPacket.getData(), 0, Transaction.SIZE);
                     System.arraycopy(transaction.hash, 0, tipRequestingPacket.getData(), Transaction.SIZE, Transaction.HASH_SIZE);
                     
-                    neighbors.stream().forEach(n -> n.send(tipRequestingPacket));
+                    neighbors.forEach(n -> n.send(tipRequestingPacket));
                     
                     Thread.sleep(5000);
                 } catch (final Exception e) {

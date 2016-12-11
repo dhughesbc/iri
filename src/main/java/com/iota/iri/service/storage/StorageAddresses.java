@@ -72,8 +72,8 @@ public class StorageAddresses extends AbstractStorage {
 		}
 	}
 
-	public synchronized long addressPointer(final byte[] hash) {
-
+	public long addressPointer(final byte[] hash) {
+        synchronized (Storage.class) {
         long pointer = ((hash[0] + 128) + ((hash[1] + 128) << 8)) << 11;
         for (int depth = 2; depth < Transaction.ADDRESS_SIZE; depth++) {
 
@@ -92,12 +92,13 @@ public class StorageAddresses extends AbstractStorage {
                 return pointer;
             }
         }
-
+		}
         throw new IllegalStateException("Corrupted storage");
     }
 	
-	public synchronized List<Long> addressTransactions(final long pointer) {
+	public List<Long> addressTransactions(final long pointer) {
 
+        synchronized (Storage.class) {
         final List<Long> addressTransactions = new LinkedList<>();
 
         if (pointer != 0) {
@@ -129,8 +130,9 @@ public class StorageAddresses extends AbstractStorage {
                 }
             }
         }
-
+        
         return addressTransactions;
+        }
     }
 	
 	public void updateAddresses(final long transactionPointer, final Transaction transaction) {
@@ -235,7 +237,6 @@ public class StorageAddresses extends AbstractStorage {
         }
 	}
 	
-
     private void appendToAddresses() {
 
         ((ByteBuffer)addressesChunks[(int)(addressesNextPointer >> 27)].position((int)(addressesNextPointer & (CHUNK_SIZE - 1)))).put(mainBuffer);

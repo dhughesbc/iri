@@ -2,9 +2,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>groupId</groupId>
+<<<<<<< HEAD
   <artifactId>iri-testnet</artifactId>
   <name>IRI Testnet</name>
-  <version>1.1.1</version>
+  <version>1.1.2.1</version>
   <description>Testnet IOTA Reference Implementation.</description>
   <build>
     <plugins>
@@ -42,6 +43,14 @@
       </plugin>
     </plugins>
   </build>
+  <repositories>
+    <repository>
+      <releases />
+      <snapshots />
+      <id>sonatype-oss-public</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
+    </repository>
+  </repositories>
   <dependencies>
     <dependency>
       <groupId>com.jayway.restassured</groupId>
@@ -115,6 +124,6 @@
   <properties>
     <java-version>1.8</java-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <undertown.version>1.2.11.Final</undertown.version>
+    <undertown.version>1.4.6.Final</undertown.version>
   </properties>
 </project>
