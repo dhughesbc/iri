@@ -8,6 +8,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.TreeSet;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +27,7 @@ public class StorageTransactions extends AbstractStorage {
 	
 	private static final StorageTransactions instance = new StorageTransactions();
 	private static final String TRANSACTIONS_FILE_NAME = "transactions.iri";
+	private static final Map<Long, Long> weight = new HashMap<>();
 	
 	private FileChannel transactionsChannel;
     private ByteBuffer transactionsTipsFlags;
@@ -257,8 +264,30 @@ public class StorageTransactions extends AbstractStorage {
             }
         }
 
+        if (pointer != 0) {
+            weight.put(pointer, new Long(0));
+            updateWeights(pointer);
+        }
         return pointer;
     	}
+    }
+
+    private void updateWeights(Long pntr) {
+        Long pointer = pntr;
+        TreeSet<Long> treeSet = new TreeSet<>(Collections.singleton(pointer));
+        Set<Long> foundSet = new HashSet<Long>(Collections.singleton(pointer));
+        while((pointer = treeSet.pollLast()) != null) {
+            if(!foundSet.contains(pointer)) {
+                foundSet.add(pointer);
+                weight.compute(pointer, (key,count) -> count++);
+                Transaction transaction = StorageTransactions.instance().loadTransaction(pointer);
+                treeSet.addAll(StorageApprovers.instance().approveeTransactions(pointer));
+            }
+        }
+    }
+
+    public Long getTransactionWeight(Long pointer) {
+        return weight.get(pointer);
     }
 
     public ByteBuffer transactionsTipsFlags() {
