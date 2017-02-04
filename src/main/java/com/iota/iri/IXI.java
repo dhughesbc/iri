@@ -50,14 +50,18 @@ public class IXI {
     public static void shutdown() {
         watchingThread = false;
         try {
+            System.out.print("Joining Directory Watch Thread... ");
             dirWatchThread.join();
+            System.out.println("Done.");
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
+        System.out.print("Detaching keys... ");
         Object[] keys = ixiAPI.keySet().toArray();
         for (Object key : keys) {
             detach((String)key);
         }
+        System.out.println("Done.");
     }
 
     private  static void register (Path dir) throws IOException {
