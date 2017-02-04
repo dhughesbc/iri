@@ -48,6 +48,7 @@ public class IXI {
     }
 
     public static void shutdown() {
+        synchronized(instance) {
         watchingThread = false;
         try {
             System.out.print("Joining Directory Watch Thread... ");
@@ -55,6 +56,7 @@ public class IXI {
             System.out.println("Done.");
         } catch(InterruptedException e) {
             e.printStackTrace();
+        }
         }
         System.out.print("Detaching keys... ");
         Object[] keys = ixiAPI.keySet().toArray();
