@@ -27,7 +27,9 @@ public class IXITest {
         final File ixiDir = new File(ixiPath);
         if(!ixiDir.exists()) ixiDir.mkdir();
 
+        System.out.print("Initializing ixi... ");
         IXI.instance().init();
+        System.out.println("Done.");
 
         final String testJs =
                 "var Callable = Java.type(\"java.util.concurrent.Callable\");\n" +
@@ -41,18 +43,23 @@ public class IXITest {
                         "}\n" +
                         "}));\n";
 
+        System.out.println("Writing Test File");
         final File testFile = new File(ixiPath + "/test.js");
         testFile.createNewFile();
         try (OutputStream out = new BufferedOutputStream(
                 Files.newOutputStream(testFile.toPath(), CREATE))) {
             out.write(testJs.getBytes());
         }
+        System.out.println("Running getParser test");
         Map<String, Object> request = new HashMap<>();
         AbstractResponse response = IXI.processCommand("test.getParser", request);
 
+        System.out.println("Deleting ixi test file.");
         testFile.delete();
 
+        System.out.print("Shutting down ixi... ");
         IXI.shutdown();
+        System.out.println("Done.");
     }
 
     @Test
