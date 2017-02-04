@@ -30,7 +30,6 @@ public class IXI {
     private static final Map<WatchKey, Path> watchKeys = new HashMap<>();
     private static WatchService watcher;
     private static Thread dirWatchThread;
-    private static boolean watchingThread;
 
     /*
     TODO: get configuration variable for directory to watch
@@ -42,15 +41,14 @@ public class IXI {
         Path path = Paths.get(Configuration.string(DefaultConfSettings.IXI_DIR));
         String s = path.toAbsolutePath().toString();
         register(path);
-        watchingThread = true;
         dirWatchThread = (new Thread(IXI::processEvents));
         dirWatchThread.start();
     }
 
     public static void shutdown() {
-        watchingThread = false;
         try {
             System.out.print("Joining Directory Watch Thread... ");
+            dirWatchThread.interrupt();
             dirWatchThread.join();
             System.out.println("Done.");
         } catch(InterruptedException e) {
@@ -113,9 +111,8 @@ public class IXI {
     }
 
     private static void processEvents() {
-        while(true) {
+        while(!Thread.interrupted()) {
             synchronized(instance) {
-                if(!watchingThread) break;
                 WatchKey key;
                 try {
                     key = watcher.take();
