@@ -48,7 +48,6 @@ public class IXI {
     }
 
     public static void shutdown() {
-        synchronized(instance) {
         watchingThread = false;
         try {
             System.out.print("Joining Directory Watch Thread... ");
@@ -56,7 +55,6 @@ public class IXI {
             System.out.println("Done.");
         } catch(InterruptedException e) {
             e.printStackTrace();
-        }
         }
         System.out.print("Detaching keys... ");
         Object[] keys = ixiAPI.keySet().toArray();
@@ -115,15 +113,18 @@ public class IXI {
     }
 
     private static void processEvents() {
-        while(watchingThread) {
-            WatchKey key;
-            try {
-                key = watcher.take();
-            } catch (InterruptedException ex) {
-                return;
-            }
+        while(true) {
+            synchronized(instance) {
+                if(!watchingThread) break;
+                WatchKey key;
+                try {
+                    key = watcher.take();
+                } catch (InterruptedException ex) {
+                    return;
+                }
 
-            pollEvents(key, watchKeys.get(key));
+                pollEvents(key, watchKeys.get(key));
+            }
         }
     }
 
