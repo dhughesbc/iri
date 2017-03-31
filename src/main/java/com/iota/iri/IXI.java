@@ -1,35 +1,22 @@
 package com.iota.iri;
 
-import static com.sun.jmx.mbeanserver.Util.cast;
-import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
-import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
-
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.script.Bindings;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-
 import com.iota.iri.conf.Configuration;
 import com.iota.iri.conf.Configuration.DefaultConfSettings;
 import com.iota.iri.service.CallableRequest;
 import com.iota.iri.service.dto.AbstractResponse;
 import com.iota.iri.service.dto.ErrorResponse;
+import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
+
+import javax.script.*;
+import java.io.*;
+import java.nio.file.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Callable;
+
+import static com.sun.jmx.mbeanserver.Util.cast;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.nio.file.StandardWatchEventKinds.*;
 
 public class IXI {
 
@@ -45,29 +32,35 @@ public class IXI {
     private static Thread dirWatchThread;
 
     /*
-    TODO: load configuration variable for directory to watch
+    TODO: get configuration variable for directory to watch
     TODO: initialize directory listener
     TODO: create events for target added/changed/removed
      */
     public static void init() throws Exception {
-        watcher = FileSystems.getDefault().newWatchService();
-        Path path = Paths.get(Configuration.string(DefaultConfSettings.IXI_DIR));
-        //String s = path.toAbsolutePath().toString();
-        register(path);
-        dirWatchThread = (new Thread(IXI::processEvents));
-        dirWatchThread.start();
+        if(Configuration.string(DefaultConfSettings.IXI_DIR).length() > 0) {
+            watcher = FileSystems.getDefault().newWatchService();
+            Path path = Paths.get(Configuration.string(DefaultConfSettings.IXI_DIR));
+            String s = path.toAbsolutePath().toString();
+            final File ixiDir = new File(s);
+            if(!ixiDir.exists()) ixiDir.mkdir();
+            register(path);
+            dirWatchThread = (new Thread(IXI::processEvents));
+            dirWatchThread.start();
+        }
     }
 
     public static void shutdown() {
-        try {
-            dirWatchThread.interrupt();
-            dirWatchThread.join();
-        } catch(InterruptedException e) {
-            e.printStackTrace();
-        }
-        Object[] keys = ixiAPI.keySet().toArray();
-        for (Object key : keys) {
-            detach((String)key);
+        if(dirWatchThread != null) {
+            try {
+                dirWatchThread.interrupt();
+                dirWatchThread.join();
+            } catch(InterruptedException e) {
+                e.printStackTrace();
+            }
+            Object[] keys = ixiAPI.keySet().toArray();
+            for (Object key : keys) {
+                detach((String)key);
+            }
         }
     }
 
@@ -108,15 +101,14 @@ public class IXI {
                 if(command.substring(0, key.length()).equals(key)) {
                     String subCmd = command.substring(key.length()+1);
                     ixiMap = ixiAPI.get(key);
-                    CallableRequest<AbstractResponse> c = ixiMap.get(subCmd);
-                    res = c.call(request);
+                    res = ((CallableRequest<AbstractResponse>)ixiMap.get(subCmd)).call(request);
                     if(res != null) return res;
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return ErrorResponse.create("Command [" + command + "] is unknown");
+        return null;
     }
 
     private static void processEvents() {
