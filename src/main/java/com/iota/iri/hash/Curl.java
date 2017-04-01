@@ -99,6 +99,7 @@ public class Curl {
         } while ((l -= HASH_LENGTH) > 0);
         return dest;
     };
+
     public static Function<Tuple[], Tuple[]> absorb(final Tuple[] trits, int offset, int length) {
         return (state) -> Curl.absorb(state, trits, offset, length);
     }

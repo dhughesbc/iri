@@ -1,4 +1,4 @@
-package com.iota.iri.hash;
+package com.iota.iri.utils;
 
 import com.iota.iri.utils.Converter;
 import org.apache.commons.lang3.ArrayUtils;
@@ -11,7 +11,7 @@ import java.util.stream.IntStream;
 /**
  * Created by paul on 2/15/17.
  */
-public class Trinary {
+public class TritMath {
 
     public static int not(int t) {
         return -t;

@@ -159,6 +159,17 @@ public class Converter {
         return trits[offset] + trits[offset + 1] * 3 + trits[offset + 2] * 9;
     }
 
+    public static int[] incremented(final int[] trits, final int size) {
+        final int[] out = trits.clone();
+        for (int i = 0; i < size; i++) {
+            if (++out[i] > Converter.MAX_TRIT_VALUE) {
+                out[i] = Converter.MIN_TRIT_VALUE;
+            } else {
+                break;
+            }
+        }
+        return out;
+    }
     public static void increment(final int[] trits, final int size) {
         for (int i = 0; i < size; i++) {
             if (++trits[i] > Converter.MAX_TRIT_VALUE) {
