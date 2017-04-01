@@ -29,10 +29,12 @@ public class IXITest {
     public static void setUp() throws Exception {
         ixiDir.create();
         Configuration.put(Configuration.DefaultConfSettings.IXI_DIR, ixiDir.getRoot().getAbsolutePath());
+        IXI.instance().init();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
+        IXI.instance().shutdown();
         ixiDir.delete();
     }
 
@@ -40,7 +42,6 @@ public class IXITest {
     public void init() throws Exception {
         AbstractResponse response;
         IXIResponse ixiResponse;
-        IXI.instance().init();
 
         final String testJs =
         "var Callable = Java.type(\"com.iota.iri.service.CallableRequest\");\n" +
@@ -68,7 +69,7 @@ public class IXITest {
         // Allow IXI to load the file
         Map<String, Object> request = new HashMap<>();
         Thread.sleep(1000);
-        response = IXI.processCommand("test.getParser", request);
+        response = IXI.instance().processCommand("test.getParser", request);
 
         assertFalse(response instanceof ErrorResponse);
         assertTrue(response instanceof IXIResponse);
@@ -77,8 +78,6 @@ public class IXITest {
         assertNotNull(ixiResponse.getResponse());
 
         testFile.delete();
-
-        IXI.shutdown();
     }
 
     @Test

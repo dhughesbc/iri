@@ -1,5 +1,7 @@
 package com.iota.iri.hash.keys;
 
+import com.iota.iri.utils.Converter;
+
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -63,6 +65,11 @@ public class MerkleNode implements Comparable<MerkleNode> {
                 .map(MerkleNode::size)
                 .reduce(Math::addExact)
                 .orElse(0);
+    }
+
+    @Override
+    public String toString() {
+        return Converter.trytes(value) + (childCount() == 0 ? "": ": " + Arrays.toString(children));
     }
 
     @Override

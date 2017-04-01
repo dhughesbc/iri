@@ -11,8 +11,11 @@ import static org.junit.Assert.*;
  * Created by paul on 4/1/17.
  */
 public class MerkleNodeTest {
-    static final String rootString = "SOMERANDOMTRYTESROOT9";
     static MerkleNode first, second, third, firstAndSecond, nullAndThird, root;
+    static final String rootString = "SOMERANDOMTRYTESROOT9";
+    static final String rootToString = "SOMERANDOMTRYTESROOT9: " +
+            "[SOMERANDOMTRYTESONETWO: [SOMERANDOMTRYTESONE, SOMERANDOMTRYTESTWO], " +
+            "SOMERANDOMTRYTESNULLTHREE: [SOMERANDOMTRYTESTHREE]]";
 
     @BeforeClass
     public static void setup() {
@@ -67,5 +70,12 @@ public class MerkleNodeTest {
     public void sizeTest() throws Exception {
         root = MerkleNode.create(Converter.trits(rootString), new MerkleNode[]{firstAndSecond, nullAndThird});
         assertEquals(6, root.size());
+    }
+
+    @Test
+    public void stringTest() throws Exception {
+        root = MerkleNode.create(Converter.trits(rootString), new MerkleNode[]{firstAndSecond, nullAndThird});
+        System.out.println(root.toString());
+        assertEquals(root.toString(), rootToString);
     }
 }

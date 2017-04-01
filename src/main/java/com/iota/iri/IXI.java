@@ -20,23 +20,23 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 public class IXI {
 
-    private static final ScriptEngine scriptEngine = (new ScriptEngineManager()).getEngineByName("JavaScript");
+    private final ScriptEngine scriptEngine = (new ScriptEngineManager()).getEngineByName("JavaScript");
     /*
     private static final ScriptEngine scriptEngine = (new NashornScriptEngineFactory()).getScriptEngine((classname) ->
             !"com.iota.iri.IXI".equals(classname));
     */
-    private static final Map<String, Map<String, CallableRequest<AbstractResponse>>> ixiAPI = new HashMap<>();
-    private static final Map<String, Map<String, Runnable>> ixiLifetime = new HashMap<>();
-    private static final Map<WatchKey, Path> watchKeys = new HashMap<>();
-    private static WatchService watcher;
-    private static Thread dirWatchThread;
+    private final Map<String, Map<String, CallableRequest<AbstractResponse>>> ixiAPI = new HashMap<>();
+    private final Map<String, Map<String, Runnable>> ixiLifetime = new HashMap<>();
+    private final Map<WatchKey, Path> watchKeys = new HashMap<>();
+    private WatchService watcher;
+    private Thread dirWatchThread;
 
     /*
     TODO: get configuration variable for directory to watch
     TODO: initialize directory listener
     TODO: create events for target added/changed/removed
      */
-    public static void init() throws Exception {
+    public void init() throws Exception {
         if(Configuration.string(DefaultConfSettings.IXI_DIR).length() > 0) {
             watcher = FileSystems.getDefault().newWatchService();
             Path path = Paths.get(Configuration.string(DefaultConfSettings.IXI_DIR));
@@ -44,12 +44,12 @@ public class IXI {
             final File ixiDir = new File(s);
             if(!ixiDir.exists()) ixiDir.mkdir();
             register(path);
-            dirWatchThread = (new Thread(IXI::processEvents));
+            dirWatchThread = (new Thread(this::processEvents));
             dirWatchThread.start();
         }
     }
 
-    public static void shutdown() {
+    public void shutdown() {
         if(dirWatchThread != null) {
             try {
                 dirWatchThread.interrupt();
@@ -64,14 +64,14 @@ public class IXI {
         }
     }
 
-    private  static void register (Path dir) throws IOException {
+    private  void register (Path dir) throws IOException {
         WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
         watchKeys.put(key, dir);
         // TODO: Add existing files
         addFiles(dir);
     }
 
-    private static void addFiles (Path dir) throws IOException {
+    private void addFiles (Path dir) throws IOException {
         Files.walk(dir).forEach(filePath -> {
             if(!filePath.equals(dir))
                 if(Files.isDirectory(filePath, NOFOLLOW_LINKS)) {
@@ -92,7 +92,7 @@ public class IXI {
         });
     }
 
-    public static AbstractResponse processCommand(final String command, Map<String, Object> request) {
+    public AbstractResponse processCommand(final String command, Map<String, Object> request) {
         try {
             Map<String, CallableRequest<AbstractResponse>> ixiMap;
             AbstractResponse res;
@@ -111,7 +111,7 @@ public class IXI {
         return null;
     }
 
-    private static void processEvents() {
+    private void processEvents() {
         while(!Thread.interrupted()) {
             synchronized(instance) {
                 WatchKey key;
@@ -126,7 +126,7 @@ public class IXI {
         }
     }
 
-    private static void pollEvents(WatchKey key, Path dir) {
+    private void pollEvents(WatchKey key, Path dir) {
         for (WatchEvent<?> event: key.pollEvents()) {
             WatchEvent.Kind kind = event.kind();
 
@@ -149,7 +149,7 @@ public class IXI {
         }
     }
 
-    private static void executeEvents(WatchEvent.Kind kind, Path child) {
+    private void executeEvents(WatchEvent.Kind kind, Path child) {
         if (kind == ENTRY_MODIFY || kind == ENTRY_DELETE) {
 
             System.out.format("detach child: %s \n", child);
@@ -171,7 +171,7 @@ public class IXI {
         }
     }
 
-    private static void attach(final Reader ixi, final String filename) {
+    private void attach(final Reader ixi, final String filename) {
         try {
             Map<String, CallableRequest<AbstractResponse>> ixiMap = new HashMap<>();
             Map<String, Runnable> startStop = new HashMap<>();
@@ -188,7 +188,7 @@ public class IXI {
         }
     }
 
-    private static void detach(String fileName) {
+    private void detach(String fileName) {
         Map<String, Runnable> ixiMap = ixiLifetime.get(fileName);
         if(ixiMap != null) {
             Runnable stop = ixiMap.get("shutdown");
