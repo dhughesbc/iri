@@ -4,15 +4,15 @@ import com.iota.iri.conf.Configuration;
 import com.iota.iri.service.dto.AbstractResponse;
 import com.iota.iri.service.dto.ErrorResponse;
 import com.iota.iri.service.dto.IXIResponse;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.OutputStream;
-import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,10 +23,23 @@ import static org.junit.Assert.*;
  * Created by paul on 1/4/17.
  */
 public class IXITest {
+    static TemporaryFolder ixiDir = new TemporaryFolder();
+
+    @BeforeClass
+    public static void setUp() throws Exception {
+        ixiDir.create();
+        Configuration.put(Configuration.DefaultConfSettings.IXI_DIR, ixiDir.getRoot().getAbsolutePath());
+    }
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        ixiDir.delete();
+    }
+
     @Test
     public void init() throws Exception {
-        final String ixiPath = "ixiTest";
-        Configuration.put(Configuration.DefaultConfSettings.IXI_DIR, ixiPath);
+        AbstractResponse response;
+        IXIResponse ixiResponse;
         IXI.instance().init();
 
         final String testJs =
@@ -45,7 +58,8 @@ public class IXITest {
                 "}\n" +
         "}));";
 
-        final File testFile = new File(ixiPath + "/test.js");
+
+        final File testFile = ixiDir.newFile("test.js");
         testFile.createNewFile();
         try (OutputStream out = new BufferedOutputStream(
                 Files.newOutputStream(testFile.toPath(), CREATE))) {
@@ -54,11 +68,13 @@ public class IXITest {
         // Allow IXI to load the file
         Map<String, Object> request = new HashMap<>();
         Thread.sleep(1000);
-        AbstractResponse response = IXI.processCommand("test.getParser", request);
+        response = IXI.processCommand("test.getParser", request);
 
         assertFalse(response instanceof ErrorResponse);
         assertTrue(response instanceof IXIResponse);
-        assertNotNull(((IXIResponse)response).getResponse());
+
+        ixiResponse = ((IXIResponse) response);
+        assertNotNull(ixiResponse.getResponse());
 
         testFile.delete();
 

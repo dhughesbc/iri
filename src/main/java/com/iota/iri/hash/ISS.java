@@ -384,12 +384,12 @@ public class ISS {
         MerkleNode[] merkleKeys = nodesFromTuples(privPubkeys[0], numberOfKeysToCreate);
         MerkleNode[] merklePubKeys = nodesFromTuples(privPubkeys[1], numberOfKeysToCreate);
         for(i = 0; i < merklePubKeys.length; i++) {
-            merklePubKeys[i].children = new MerkleNode[]{merkleKeys[i]};
+            merklePubKeys[i] = MerkleNode.create(merklePubKeys[i].value, new MerkleNode[]{merkleKeys[i]});
         }
         return merklePubKeys;
     }
 
-    public static MerkleNode merkleTree(int[] seed, int startingIndex, int numberOfKeysToCreate, final int securityLevel) {
+    public static MerkleNode createMerkleTree(int[] seed, int startingIndex, int numberOfKeysToCreate, final int securityLevel) {
         if(securityLevel % 81 != 0)
             throw new RuntimeException("Invalid key Size: " + securityLevel);
         int hashSize, i, j, k, start, sz, numberOfLevels;
@@ -407,14 +407,21 @@ public class ISS {
             for(j = 0; j < currentLevelKeys.length; j++) {
                 start = j*2;
                 sz = start+2 >= prevLevelKeys.length? prevLevelKeys.length-start:2;
+                currentLevelKeys[j] = MerkleNode.create(currentLevelKeys[j].value, Arrays.copyOfRange(prevLevelKeys, j*2, j*2+sz));
+                /*
                 currentLevelKeys[j].children = new MerkleNode[sz];
                 for(k = 0; k < sz; k++) {
                     if(j*2+k >= prevLevelKeys.length) break;
                     currentLevelKeys[j].children[k] = prevLevelKeys[j*2 + k];
                 }
+                */
             }
             prevLevelKeys = currentLevelKeys;
         }
         return prevLevelKeys[0];
+    }
+
+    public static boolean checkMerkleSignature() {
+        return false;
     }
 }

@@ -430,7 +430,7 @@ public class TipsManager {
 
                         // --Coo only--
                         // bestTip = new Hash(Storage.loadTransaction(tailPointer).hash, 0, TransactionViewModel.HASH_SIZE);
-                        // bestRating = extraTransactions.size();
+                        // bestRating = extraTransactions.leafCount();
                         // seenTails.addAll(extraTransactions);
 
                             /**/
