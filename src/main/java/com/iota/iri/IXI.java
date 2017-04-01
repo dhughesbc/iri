@@ -6,6 +6,8 @@ import com.iota.iri.service.CallableRequest;
 import com.iota.iri.service.dto.AbstractResponse;
 import com.iota.iri.service.dto.ErrorResponse;
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.script.*;
 import java.io.*;
@@ -19,6 +21,7 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 public class IXI {
+    private static final Logger log = LoggerFactory.getLogger(IXI.class);
 
     private final ScriptEngine scriptEngine = (new ScriptEngineManager()).getEngineByName("JavaScript");
     /*
@@ -49,14 +52,10 @@ public class IXI {
         }
     }
 
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         if(dirWatchThread != null) {
-            try {
-                dirWatchThread.interrupt();
-                dirWatchThread.join();
-            } catch(InterruptedException e) {
-                e.printStackTrace();
-            }
+            dirWatchThread.interrupt();
+            dirWatchThread.join(6000);
             Object[] keys = ixiAPI.keySet().toArray();
             for (Object key : keys) {
                 detach((String)key);
@@ -73,40 +72,42 @@ public class IXI {
 
     private void addFiles (Path dir) throws IOException {
         Files.walk(dir).forEach(filePath -> {
-            if(!filePath.equals(dir))
+            if(!filePath.equals(dir) && !filePath.toFile().isHidden())
                 if(Files.isDirectory(filePath, NOFOLLOW_LINKS)) {
                     try {
-                        System.out.format("Searching: %s \n", filePath.toString());
+                        log.info("Searching: "+ filePath);
                         addFiles(filePath);
+                        register(filePath);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.error("Error adding Files.", e);
                     }
                 } else {
-                    System.out.format("File: %s\n", filePath.toString());
+                    log.info("File found: " + filePath.toString());
                     try {
                         attach(new FileReader(filePath.toFile()), filePath.getFileName().toString().replaceFirst("[.][^.]+$", ""));
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                        //register(filePath);
+                    } catch (ScriptException e) {
+                        log.debug("Script exception: ", e);
+                    } catch (IOException e) {
+                        log.debug("Could not register path: ", e);
                     }
                 }
         });
     }
 
     public AbstractResponse processCommand(final String command, Map<String, Object> request) {
-        try {
-            Map<String, CallableRequest<AbstractResponse>> ixiMap;
-            AbstractResponse res;
-            for (String key :
-                    ixiAPI.keySet()) {
-                if(command.substring(0, key.length()).equals(key)) {
-                    String subCmd = command.substring(key.length()+1);
-                    ixiMap = ixiAPI.get(key);
-                    res = ((CallableRequest<AbstractResponse>)ixiMap.get(subCmd)).call(request);
-                    if(res != null) return res;
-                }
+        Map<String, CallableRequest<AbstractResponse>> ixiMap;
+        AbstractResponse res;
+        String substring;
+        for (String key :
+                ixiAPI.keySet()) {
+            substring = command.substring(0, key.length());
+            if(substring.equals(key)) {
+                String subCmd = command.substring(key.length()+1);
+                ixiMap = ixiAPI.get(key);
+                res = ixiMap.get(subCmd).call(request);
+                if(res != null) return res;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
         return null;
     }
@@ -117,11 +118,10 @@ public class IXI {
                 WatchKey key;
                 try {
                     key = watcher.take();
-                } catch (InterruptedException ex) {
-                    return;
+                    pollEvents(key, watchKeys.get(key));
+                } catch (InterruptedException e) {
+                    log.error("Watcher interrupted: ", e);
                 }
-
-                pollEvents(key, watchKeys.get(key));
             }
         }
     }
@@ -138,7 +138,13 @@ public class IXI {
             Path name = ev.context();
             Path child = dir.resolve(name);
 
-            executeEvents(kind, child);
+            try {
+                executeEvents(kind, child);
+            } catch (IOException e) {
+                log.debug("Could not load file.");
+            } catch (ScriptException e) {
+                log.debug("Could not load script.");
+            }
 
             if (!key.reset()) {
                 watchKeys.remove(key);
@@ -149,30 +155,25 @@ public class IXI {
         }
     }
 
-    private void executeEvents(WatchEvent.Kind kind, Path child) {
+    private void executeEvents(WatchEvent.Kind kind, Path child) throws IOException, ScriptException {
         if (kind == ENTRY_MODIFY || kind == ENTRY_DELETE) {
 
-            System.out.format("detach child: %s \n", child);
+            log.debug("detach child: "+ child);
             detach(child.toString().replaceFirst("[.][^.]+$", ""));
         }
         if (kind == ENTRY_CREATE || kind == ENTRY_MODIFY) {
-            try {
-                if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                    //registerAll(child);
-                    System.out.format("child: %s \n", child);
-                } else {
-                    //Files.isRegularFile(child)
-                    System.out.format("load child: %s \n", child);
-                    attach(new FileReader(child.toFile()), child.getFileName().toString().replaceFirst("[.][^.]+$", ""));
-                }
-            } catch (Exception x) {
-                // ignore to keep sample readable
+            if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
+                register(child);
+            } else {
+                //Files.isRegularFile(child)
+                log.debug("Attempting to load "+ child);
+                attach(new FileReader(child.toFile()), child.getFileName().toString().replaceFirst("[.][^.]+$", ""));
+                log.debug("Done.");
             }
         }
     }
 
-    private void attach(final Reader ixi, final String filename) {
-        try {
+    private void attach(final Reader ixi, final String filename) throws ScriptException {
             Map<String, CallableRequest<AbstractResponse>> ixiMap = new HashMap<>();
             Map<String, Runnable> startStop = new HashMap<>();
             Bindings bindings = scriptEngine.createBindings();
@@ -182,10 +183,6 @@ public class IXI {
             ixiAPI.put(filename, ixiMap);
             ixiLifetime.put(filename, startStop);
             scriptEngine.eval(ixi, bindings);
-
-        } catch (final ScriptException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void detach(String fileName) {
